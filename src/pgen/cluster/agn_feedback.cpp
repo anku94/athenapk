@@ -16,6 +16,7 @@
 #include <mesh/domain.hpp>
 #include <parameter_input.hpp>
 #include <parthenon/package.hpp>
+#include <parthenon/outputs/tau_types.hpp>
 
 // Athena headers
 #include "../../eos/adiabatic_glmmhd.hpp"
@@ -361,6 +362,7 @@ void AGNFeedback::FeedbackSrcTerm(parthenon::MeshData<parthenon::Real> *md,
   const Real magnetic_power = power * magnetic_fraction_;
   const Real magnetic_mass_rate = mass_rate * magnetic_fraction_;
   magnetic_tower.PowerSrcTerm(magnetic_power, magnetic_mass_rate, md, beta_dt, tm);
+
 }
 
 } // namespace cluster

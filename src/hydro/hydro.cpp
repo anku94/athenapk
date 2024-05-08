@@ -11,6 +11,7 @@
 
 // Parthenon headers
 #include <parthenon/package.hpp>
+#include <parthenon/outputs/tau_types.hpp>
 
 // AthenaPK headers
 #include "../eos/adiabatic_glmmhd.hpp"
@@ -763,6 +764,8 @@ TaskStatus CalculateFluxesTight(std::shared_ptr<MeshData<Real>> &md) {
 // Calculate fluxes using scratch pad memory, i.e., over cached pencils in i-dir.
 template <Fluid fluid, Reconstruction recon, RiemannSolver rsolver>
 TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &md) {
+	double _ts_beg = tau::GetUsSince(0);
+
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -943,6 +946,16 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &md) {
     ThermalFluxAniso(md.get());
   }
 
+  const int nblocks = md->NumBlocks();
+	double cf_time = tau::GetUsSince(_ts_beg);
+	cf_time /= nblocks; // assume all blocks = uniform
+
+	for (int bidx = 0; bidx < nblocks; bidx++) {
+		int gid = md->GetBlockGid(bidx);
+		// tau::LogBlockEvent(gid, TAU_BLKEVT_US_CF, cf_time);
+    md->AddBlockCost(bidx, cf_time);
+	}
+
   return TaskStatus::complete;
 }
 
@@ -962,6 +975,8 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshData<Real>> &md) {
 template <Fluid fluid>
 TaskStatus FirstOrderFluxCorrect(MeshData<Real> *u0_data, MeshData<Real> *u1_data,
                                  const Real gam0, const Real gam1, const Real beta_dt) {
+	double _ts_beg = tau::GetUsSince(0);
+
   auto pmb = u0_data->GetBlockData(0)->GetBlockPointer();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -1076,6 +1091,16 @@ TaskStatus FirstOrderFluxCorrect(MeshData<Real> *u0_data, MeshData<Real> *u1_dat
     //           << " Failed (will rely on floor): " << num_need_floor << std::endl;
     num_attempts += 1;
   } while (num_corrected > 0 && num_attempts < 4);
+
+  const int nblocks = u0_data->NumBlocks();
+	double cf_time = tau::GetUsSince(_ts_beg);
+	cf_time /= nblocks; // assume all blocks = uniform
+
+	for (int bidx = 0; bidx < nblocks; bidx++) {
+		int gid = u0_data->GetBlockGid(bidx);
+		tau::LogBlockEvent(gid, TAU_BLKEVT_US_CF, cf_time);
+    u0_data->AddBlockCost(bidx, cf_time);
+	}
 
   return TaskStatus::complete;
 }

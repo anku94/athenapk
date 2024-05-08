@@ -18,11 +18,14 @@
 #include <globals.hpp>
 #include <mesh/domain.hpp>
 #include <parameter_input.hpp>
+#include <outputs/tau_types.hpp>
 
 // AthenaPK headers
 #include "../../units.hpp"
 #include "tabular_cooling.hpp"
 #include "utils/error_checking.hpp"
+
+
 
 namespace cooling {
 using namespace parthenon;
@@ -281,6 +284,7 @@ void TabularCooling::SrcTerm(MeshData<Real> *md, const Real dt) const {
 template <typename RKStepper>
 void TabularCooling::SubcyclingFixedIntSrcTerm(MeshData<Real> *md, const Real dt_,
                                                const RKStepper rk_stepper) const {
+	double _ts_beg = tau::GetUsSince(0);
 
   const auto dt = dt_; // HACK capturing parameters still broken with Cuda 11.6 ...
   auto hydro_pkg = md->GetBlockData(0)->GetBlockPointer()->packages.Get("Hydro");
@@ -475,6 +479,16 @@ void TabularCooling::SubcyclingFixedIntSrcTerm(MeshData<Real> *md, const Real dt
         // ConservedToPrim conversion, but keeping it for now (better safe than sorry).
         prim(IPR, k, j, i) = rho * internal_e * gm1;
       });
+
+  const int nblocks = md->NumBlocks();
+	double scf_time = tau::GetUsSince(_ts_beg);
+	scf_time /= nblocks; // assume all blocks = uniform
+
+	for (int bidx = 0; bidx < nblocks; bidx++) {
+		int gid = md->GetBlockGid(bidx);
+		// tau::LogBlockEvent(gid, TAU_BLKEVT_US_COMP4, scf_time);
+    md->AddBlockCost(bidx, scf_time);
+	}
 }
 
 void TabularCooling::TownsendSrcTerm(parthenon::MeshData<parthenon::Real> *md,

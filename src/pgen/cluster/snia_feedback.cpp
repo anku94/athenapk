@@ -15,6 +15,7 @@
 #include <mesh/domain.hpp>
 #include <parameter_input.hpp>
 #include <parthenon/package.hpp>
+#include <parthenon/outputs/tau_types.hpp>
 
 // Athena headers
 #include "../../eos/adiabatic_glmmhd.hpp"
@@ -50,6 +51,8 @@ SNIAFeedback::SNIAFeedback(parthenon::ParameterInput *pin,
 void SNIAFeedback::FeedbackSrcTerm(parthenon::MeshData<parthenon::Real> *md,
                                    const parthenon::Real beta_dt,
                                    const parthenon::SimTime &tm) const {
+	double _ts_beg = tau::GetUsSince(0);
+
   auto hydro_pkg = md->GetBlockData(0)->GetBlockPointer()->packages.Get("Hydro");
   auto fluid = hydro_pkg->Param<Fluid>("fluid");
   if (fluid == Fluid::euler) {
@@ -59,6 +62,16 @@ void SNIAFeedback::FeedbackSrcTerm(parthenon::MeshData<parthenon::Real> *md,
   } else {
     PARTHENON_FAIL("SNIAFeedback::FeedbackSrcTerm: Unknown EOS");
   }
+
+  const int nblocks = md->NumBlocks();
+	double comp_time = tau::GetUsSince(_ts_beg);
+	comp_time /= nblocks; // assume all blocks = uniform
+
+	for (int bidx = 0; bidx < nblocks; bidx++) {
+		int gid = md->GetBlockGid(bidx);
+		// tau::LogBlockEvent(gid, TAU_BLKEVT_US_COMP3, comp_time);
+    md->AddBlockCost(bidx, comp_time);
+	}
 }
 template <typename EOS>
 void SNIAFeedback::FeedbackSrcTerm(parthenon::MeshData<parthenon::Real> *md,

@@ -298,13 +298,30 @@ TaskCollection HydroDriver::MakeTaskCollection(BlockList_t &blocks, int stage) {
 
     auto send_flx =
         tl.AddTask(first_order_flux_correct, parthenon::LoadAndSendFluxCorrections, mu0);
+  }
+
+  TaskRegion &recv_flx_region = tc.AddRegion(num_partitions);
+  for (int i = 0; i < num_partitions; i++) {
+    auto &tl = recv_flx_region[i];
+    auto &mu0 = pmesh->mesh_data.GetOrAdd("base", i);
+    auto &mu1 = pmesh->mesh_data.GetOrAdd("u1", i);
+
     auto recv_flx =
-        tl.AddTask(first_order_flux_correct, parthenon::ReceiveFluxCorrections, mu0);
+        tl.AddTask(none, parthenon::ReceiveFluxCorrections, mu0);
     auto set_flx = tl.AddTask(recv_flx, parthenon::SetFluxCorrections, mu0);
+  }
+
+  TaskRegion &set_flx_region = tc.AddRegion(num_partitions);
+  TaskID last_send;
+  for (int i = 0; i < num_partitions; i++) {
+    auto &tl = recv_flx_region[i];
+    auto &mu0 = pmesh->mesh_data.GetOrAdd("base", i);
+    auto &mu1 = pmesh->mesh_data.GetOrAdd("u1", i);
+
 
     // compute the divergence of fluxes of conserved variables
     auto update = tl.AddTask(
-        set_flx, parthenon::Update::UpdateWithFluxDivergence<MeshData<Real>>, mu0.get(),
+        none, parthenon::Update::UpdateWithFluxDivergence<MeshData<Real>>, mu0.get(),
         mu1.get(), integrator->gam0[stage - 1], integrator->gam1[stage - 1],
         integrator->beta[stage - 1] * integrator->dt);
 
@@ -336,9 +353,25 @@ TaskCollection HydroDriver::MakeTaskCollection(BlockList_t &blocks, int stage) {
     // TODO(someone) experiment with split (local/nonlocal) comms with respect to
     // performance for various tests (static, amr, block sizes) and then decide on the
     // best impl. Go with default call (split local/nonlocal) for now.
-    parthenon::AddBoundaryExchangeTasks(source_split_first_order, tl, mu0,
-                                        pmesh->multilevel);
+    // parthenon::AddBoundaryExchangeTasks(source_split_first_order, tl, mu0,
+                                        // pmesh->multilevel);
+    parthenon::AddBoundarySendTasks(source_split_first_order, tl, mu0, pmesh->multilevel);
   }
+
+
+  TaskRegion &bcomm_recv_region = tc.AddRegion(num_partitions);
+  for (int i = 0; i < num_partitions; i++) {
+    auto &tl = bcomm_recv_region[i];
+    auto &mu0 = pmesh->mesh_data.GetOrAdd("base", i);
+    parthenon::AddBoundaryRecvTasks(none, tl, mu0, pmesh->multilevel);
+  }
+
+  // TaskRegion &bcomm_set_region = tc.AddRegion(num_partitions);
+  // for (int i = 0; i < num_partitions; i++) {
+    // auto &tl = bcomm_set_region[i];
+    // auto &mu0 = pmesh->mesh_data.GetOrAdd("base", i);
+    // parthenon::AddBoundarySetTasks(none, tl, mu0, pmesh->multilevel);
+  // }
 
   TaskRegion &async_region_3 = tc.AddRegion(num_task_lists_executed_independently);
   for (int i = 0; i < blocks.size(); i++) {
