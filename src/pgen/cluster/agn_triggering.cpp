@@ -8,6 +8,7 @@
 
 #include <cmath>
 #include <limits>
+#include <fstream>
 
 // Parthenon headers
 #include <coordinates/uniform_cartesian.hpp>

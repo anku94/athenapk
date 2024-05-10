@@ -23,3 +23,5 @@ add_executable(
 add_subdirectory(pgen)
 
 target_link_libraries(athenaPK PRIVATE Parthenon::parthenon)
+
+install(TARGETS athenaPK DESTINATION bin)

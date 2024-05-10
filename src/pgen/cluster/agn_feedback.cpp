@@ -16,7 +16,7 @@
 #include <mesh/domain.hpp>
 #include <parameter_input.hpp>
 #include <parthenon/package.hpp>
-#include <parthenon/outputs/tau_types.hpp>
+#include <outputs/tau_types.hpp>
 
 // Athena headers
 #include "../../eos/adiabatic_glmmhd.hpp"

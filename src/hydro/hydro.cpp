@@ -11,7 +11,7 @@
 
 // Parthenon headers
 #include <parthenon/package.hpp>
-#include <parthenon/outputs/tau_types.hpp>
+#include <outputs/tau_types.hpp>
 
 // AthenaPK headers
 #include "../eos/adiabatic_glmmhd.hpp"
